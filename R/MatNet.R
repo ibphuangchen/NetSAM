@@ -278,11 +278,3 @@ function(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, co
     return(sum(is.na(vector))/length(vector))
 }
 
-
-t1 = rnorm(10)
-t2 = rnorm(10)
-t1[3]=NA
-tcor = cor(t1,t2,use = 'complete.obs')
-cor.test(t1,t2)
-tstatic  = tcor*sqrt(9-2)/sqrt(1-tcor^2)
-pt()
