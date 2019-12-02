@@ -157,7 +157,7 @@ function(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, co
     }
     
     if(matNetMethod=="directed"){
-        sigNetwork <- .rankBasedCoexp(filterData,corrM,rankBest=1,matNetMethod,networkType,netFDRMethod,netFDRThr)
+        sigNetwork <- .rankBasedCoexp(filterData,corrM,rankBest,matNetMethod,networkType,netFDRMethod,netFDRThr)
         cat("Base on directed-based method, a directed network with ",length(union(sigNetwork[,1],sigNetwork[,2]))," nodes and ",nrow(sigNetwork)," edges was identified when only selecting most similar node. \n",sep="")
 
     }
@@ -277,3 +277,12 @@ function(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, co
 .calculateNANum <- function(vector){
     return(sum(is.na(vector))/length(vector))
 }
+
+
+t1 = rnorm(10)
+t2 = rnorm(10)
+t1[3]=NA
+tcor = cor(t1,t2,use = 'complete.obs')
+cor.test(t1,t2)
+tstatic  = tcor*sqrt(9-2)/sqrt(1-tcor^2)
+pt()
