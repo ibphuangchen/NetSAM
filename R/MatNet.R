@@ -1,5 +1,7 @@
 MatNet <-
-function(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, corrType="spearman", matNetMethod="rank", valueThr=0.5, rankBest=0.003, networkType="signed", netFDRMethod="BH", netFDRThr=0.05, idNumThr=(-1), nThreads=3){
+function(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, 
+         corrType="spearman", matNetMethod="rank", valueThr=0.5, rankBest=0.003, 
+         networkType="positive", netFDRMethod="BH", netFDRThr=0.05, idNumThr=(-1), nThreads=3){
 	
     #require(igraph) || stop("Package igraph version 0.6 is required!")
     #require(WGCNA) || stop("Package WGCNA version 1.34.0 is required!")
@@ -40,8 +42,8 @@ function(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, co
         stop("The input 'rankBest' is invalid! 'rankBest' should be from 0 to 1!\n")
     }
     
-    if(length(which(networkType %in% c("signed","unsigned")))==0){
-		stop("The input 'networkType' is invalid! Please select from 'signed' and 'unsigned'!\n")
+    if(length(which(networkType %in% c("positive","both")))==0){
+		stop("The input 'networkType' is invalid! Please select from 'positive' and 'both'!\n")
 	}
     
     if(length(which(netFDRMethod %in% c("holm","hochberg","hommel","bonferroni","BH","BY","none")))==0){
@@ -116,8 +118,7 @@ function(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, co
     
     filterData <- filterData[names(sdG),]
     rm(meanG,sdG,inputMat)
-    gc()
-    
+
     enableWGCNAThreads()
 	
     
@@ -170,62 +171,44 @@ function(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, co
     
     diag(corrArray) <- 0
     
-    if(networkType=="unsigned"){
-        corrArray <- abs(corrArray)
-    }
-    
     corrArray[lower.tri(corrArray)] <- 0
     
-    sigIndex <- which(corrArray>valueThr,arr.ind=TRUE)
+    if(networkType == "positive") sigIndex = which(corrArray>valueThr,arr.ind=TRUE)
+    else sigIndex = which(abs(corrArray)>valueThr,arr.ind=TRUE)
     
     sigPair <- array(rownames(corrArray)[sigIndex],dim=dim(sigIndex))
-    return(sigPair)
+    corSign = ifelse(array[corrArray[sigPair]]>0, "+","-")
+    return(cbind(sigPair,corSign))
 }
 
 .rankBasedCoexp <- function(filterData,corrArray,rankBest,matNetMethod,networkType,netFDRMethod,netFDRThr){
     
     
     corrArray <- .calculateSigCorr(filterData,corrArray,netFDRMethod,netFDRThr)
-    
-    
-    #calculatePosition <- function(sindex,rownum){
-    #     col <- ceiling(sindex/rownum)
-    #       correctI <- sindex-cumsum(1:col)[col]
-    #       return(correctI)
-    #   }
-    
-    
-    if(networkType=="unsigned"){
-        corrArray <- abs(corrArray)
-    }
-    
+    #the positive option only care about the cor value, i.e. select the postive one first
     diag(corrArray) <- 0
-    
-    bestNeighbor <- apply(corrArray,1,.findBestNeighbor,rankBest)
-    
-    corrArray[corrArray!=0] <- 0
-    
-    
-    for(i in c(1:nrow(corrArray))){
-        if(!is.null(bestNeighbor[[i]][[1]])){
-            x <- bestNeighbor[[i]][[1]]
-            corrArray[i,x] <- 1
-        }
+    bestNeighbor <- apply(corrArray,1, function(x).findBestNeighbor(x,rankBest,networkType))
+    countArray = corrArray #to record which pair should be keptd
+    countArray[countArray!=0] = 0
+    for(i in 1:nrow(corrArray)){
+      if(!is.null(bestNeighbor[[i]][[1]])){
+        x = bestNeighbor[[i]][[1]]
+        countArray[i,x] = 1
+      }
     }
-    
     if(matNetMethod=="rank"){
-        corrArray <- corrArray+t(corrArray)
-        corrArray[lower.tri(corrArray)] <- 0
-        sigIndex <- which(corrArray==2,arr.ind=TRUE)
+      countArray = countArray+t(countArray)
+      countArray[lower.tri(countArray)] = 0
+      sigIndex <- which(countArray==2,arr.ind=TRUE)
     }
     
     if(matNetMethod=="directed"){
-        sigIndex <- which(corrArray==1,arr.ind=TRUE)
+        sigIndex <- which(countArray==1,arr.ind=TRUE)
     }
     
-    sigPair <- array(rownames(corrArray)[sigIndex],dim=dim(sigIndex))
-
-    return(sigPair)
+    sigPair <- array(rownames(countArray)[sigIndex],dim=dim(sigIndex))
+    corSign = ifelse(array(corrArray[sigPair])>0, '+',"-")
+    return(cbind(sigPair,corSign))
 }
 
 .calculateSigCorr <- function(filterData,corrArray,netFDRMethod,netFDRThr){
@@ -233,14 +216,13 @@ function(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, co
     suppressWarnings(t <- (corrArray * sqrt(n - 2))/sqrt(1 - corrArray^2))
     suppressWarnings(corrP <- 2 * (1 - pt(abs(t), (n - 2))))
     rm(n,t)
-    gc()
     corrP[is.na(corrP)] <- 0
     corrP[corrP>1] <- 1
     diag(corrP) <- (-1)
+    #this is essentially throw away unsignificantly correlated ones
     corrSig <- apply(corrP,1,.fdrFilter,netFDRMethod,netFDRThr)
     corrSig <- t(corrSig)
     rm(corrP)
-    gc()
     corrArray <- corrArray*corrSig
     return(corrArray)
 
@@ -257,18 +239,17 @@ function(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, co
 
 
 
-.findBestNeighbor <- function(corrList,rankBest){
+.findBestNeighbor <- function(corrList, rankBest, networkType){
     
-    corrList <- corrList[corrList!=0]
-    
+    corrList = corrList[corrList!=0]
     if(length(corrList)==0){
         return(NULL)
     }else{
-    
         if(length(corrList)<rankBest){
             return(list(names(corrList)))
         }else{
-            corrList <- sort(corrList,decreasing=T)
+            if(networkType=="positive") corrList = sort(corrList,decreasing=T)
+            else corrList = sort(abs(corrList),decreasing=T)
             return(list(names(corrList)[1:rankBest]))
         }
     }

@@ -33,7 +33,7 @@ MatNet(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, corr
 	The method to calculate correlation coefficient for each pair of ids. The function supports "spearman" (default) or "pearson" method.
   }
   \item{matNetMethod}{
-	MatNet function supports three methods to construct correlation network: "value", "rank" and "directed". 1. "value" method: the correlation network only remains id pairs with correlations over cutoff threshold \code{valueThr}; 2. "rank" method: for each id A, the function first selects ids that significantly correlate with id A and then extracts a set of candidate neighbors (the number of ids is calculated based on \code{rankBest}) from the significant set that are most similar to id A. Then, for each id B in the candidate neighbors of id A, the function also extracts the same number of ids that are significant correlated and most similar to id B. If id A is also the candidate neighbors of id B, there will be an edge between id A and id B. Combining all edges can construct a correlation network; 3. "directed" method: the function will only remain the best significant id for each id as the edge.Combining all edges can construct a directed correlation network.
+	MatNet function supports three methods to construct correlation network: "value", "rank" and "directed". 1. "value" method: the correlation network only remains id pairs with correlations over cutoff threshold \code{valueThr}; 2. "rank" method: for each id A, the function first selects ids that significantly correlate with id A and then extracts a set of candidate neighbors (the number of ids is calculated based on \code{rankBest}) from the significant set that are most similar to id A. Then, for each id B in the candidate neighbors of id A, the function also extracts the same number of ids that are significant correlated and most similar to id B. If id A is also the candidate neighbors of id B, there will be an edge between id A and id B. Combining all edges can construct a correlation network; 3. "directed" method: the function will only remain the best significant ids for each id as the edge.Combining all edges can construct a directed correlation network.
   }
   \item{valueThr}{
 	Correlation cutoff threshold for "value" method. The default is 0.5.
@@ -42,7 +42,7 @@ MatNet(inputMat, collapse_mode="maxSD", naPer=0.7, meanPer=0.8, varPer=0.8, corr
 	The percentage of ids that are most similar to one id for "rank" method. The default is 0.003 which means the "rank" method will select top 30 most similar ids for each id if the number of ids in the matrix is 10,000.
   }
   \item{networkType}{
-	If \code{networkType} is "unsigned", the correlation of all pairs of ids will be changed to absolute values. The default is "signed".
+	If \code{networkType} is "both", both the postive and negative correlated neighbors will be changed to absolute values. The default is "postive", which only keeps the postively correlated neighbors.
   }
   \item{netFDRMethod}{
 	p value adjustment methods for "rank" and "directed" methods. The default is "BH".
